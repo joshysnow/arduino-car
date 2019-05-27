@@ -28,7 +28,7 @@
 #define MAIN_SPEED      105   // normal speed of car
 
 #define START_TIME      330   // time for the car to move at start speed in ms
-#define MOVE_TIME       750  // time to move before checking in ms
+#define MOVE_TIME       500  // time to move before checking in ms
 #define TURN_TIME       500   // time to perform turn manoeuvre in ms
 
 #define STATE_IDLE      0
