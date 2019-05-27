@@ -17,17 +17,29 @@
 
 #define US_MIN_RANGE    20
 #define US_MAX_RANGE    4000
+#define US_THRESHOLD    200    // max distance to evade object
 
-#define START_SPEED     120 // default speed to get car moving
-#define MAIN_SPEED      100 // normal speed
+#define US_CENTER_ANGLE   85
+#define US_LEFT_ANGLE     170
+#define US_RIGHT_ANGLE    10
+
+#define START_SPEED     130   // default speed to get car moving
+#define TURN_SPEED      230   // speed when rotating
+#define MAIN_SPEED      105   // normal speed of car
+
+#define START_TIME      330   // time for the car to move at start speed in ms
+#define MOVE_TIME       750  // time to move before checking in ms
+#define TURN_TIME       33   // time to perform turn manoeuvre in ms
 
 #define STATE_IDLE      0
 #define STATE_RUNNING   1
 
 HCSR04 ultrasonic(TRIG, ECHO, US_MIN_RANGE, US_MAX_RANGE);
 Servo carServo;
-byte carState;
 
+/**
+ * INITIALIZE
+ */
 void setup() 
 {
   Serial.begin(9600);
@@ -37,39 +49,10 @@ void setup()
   stopCar();
 }
 
-void loop() 
-{
-  delay(1000);
-
-  if (carState == STATE_IDLE)
-  {
-    startCar();
-  }
-  else
-  {
-    updateUS();
-  }
-}
-
-void startCar()
-{
-  // Get initial inertia
-  forward(START_SPEED);
-
-  // Let car move
-  delay(250);
-
-  // Change to main speed
-  forward(MAIN_SPEED);
-
-  // Update state
-  carState = STATE_RUNNING;
-}
-
 void setupServo()
 {
   carServo.attach(SERVO_PIN);
-  carServo.write(85);
+  lookAhead();
 }
 
 void setupMotors()
@@ -82,15 +65,37 @@ void setupMotors()
   pinMode(ENB, OUTPUT);
 }
 
+/**
+ * UPDATE
+ */
+void loop() 
+{
+  startCar();
+  delay(MOVE_TIME);
+  
+  stopCar();
+  updateUltrasonic();
+}
+
+void startCar()
+{
+  // Get initial inertia
+  goForward(START_SPEED);
+
+  // Let car move
+  delay(START_TIME);
+
+  // Change to main speed
+  goForward(MAIN_SPEED);
+}
+
 void stopCar()
 {
   digitalWrite(ENA, LOW);
   digitalWrite(ENB, LOW);
-
-  carState = STATE_IDLE;
 }
 
-void forward(int speed)
+void goForward(int speed)
 {
   analogWrite(ENA, speed);
   analogWrite(ENB, speed);
@@ -101,28 +106,106 @@ void forward(int speed)
   digitalWrite(MOTOR_4, HIGH);
 }
 
-byte _position = 0;
-
-void updateUS()
+void reverse()
 {
-  Serial.println(ultrasonic.distanceInMillimeters());
-
-  if (_position == 0)
-  {
-    // RIGHT
-    carServo.write(40);
-  }
-  else if (_position == 1)
-  {
-    // MIDDLE
-    carServo.write(85);
-  }
-  else
-  {
-    // LEFT
-    carServo.write(140);
-  }
-
-  _position = (_position + 1) % 3;
+  analogWrite(ENA, START_SPEED);
+  analogWrite(ENB, START_SPEED);
+  
+  digitalWrite(MOTOR_1, LOW);
+  digitalWrite(MOTOR_2, HIGH);
+  digitalWrite(MOTOR_3, HIGH);
+  digitalWrite(MOTOR_4, LOW);
 }
 
+void turnLeft()
+{
+  analogWrite(ENA, TURN_SPEED);
+  analogWrite(ENB, TURN_SPEED);
+  
+  digitalWrite(MOTOR_1, LOW);
+  digitalWrite(MOTOR_2, HIGH);
+  digitalWrite(MOTOR_3, LOW);
+  digitalWrite(MOTOR_4, HIGH);
+}
+
+void turnRight()
+{
+  analogWrite(ENA, TURN_SPEED);
+  analogWrite(ENB, TURN_SPEED);
+  
+  digitalWrite(MOTOR_1, HIGH);
+  digitalWrite(MOTOR_2, LOW);
+  digitalWrite(MOTOR_3, HIGH);
+  digitalWrite(MOTOR_4, LOW);
+}
+
+void lookAhead()
+{
+  carServo.write(US_CENTER_ANGLE);
+}
+
+void lookLeft()
+{
+  carServo.write(US_LEFT_ANGLE);
+}
+
+void lookRight()
+{
+  carServo.write(US_RIGHT_ANGLE);
+}
+
+void updateUltrasonic()
+{
+  float distanceAhead;
+  float distanceLeft;
+  float distanceRight;
+  bool sufficientClearance = false;
+
+  while(!sufficientClearance)
+  {
+    distanceAhead = ultrasonic.distanceInMillimeters();
+    Serial.print("O-O ahead: ");
+    Serial.println(distanceAhead);
+    
+    lookLeft();
+    delay(750);
+    distanceLeft = ultrasonic.distanceInMillimeters();
+    Serial.print("O-O left: ");
+    Serial.println(distanceLeft);
+    
+    lookRight();
+    delay(800);
+    distanceRight = ultrasonic.distanceInMillimeters();
+    Serial.print("O-O right: ");
+    Serial.println(distanceRight);
+
+    // finish routine in start position
+    lookAhead();
+
+    if (distanceAhead > US_THRESHOLD)
+    {
+      // keep going forward
+      Serial.println("O-O FORWARD");
+      sufficientClearance = true;
+      break;
+    }
+
+    if (distanceLeft > distanceRight)
+    {
+      // turn left
+      Serial.println("O-O LEFT");
+      turnLeft();
+      delay(TURN_TIME);
+    }
+    else
+    {
+      // turn right
+      Serial.println("O-O RIGHT");
+      turnRight();
+      delay(TURN_TIME);
+    }
+
+    stopCar();
+    delay(500);
+  }
+}
