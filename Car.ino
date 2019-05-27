@@ -17,7 +17,7 @@
 
 #define US_MIN_RANGE    20
 #define US_MAX_RANGE    4000
-#define US_THRESHOLD    200    // max distance to evade object
+#define US_THRESHOLD    250    // max distance to evade object
 
 #define US_CENTER_ANGLE   85
 #define US_LEFT_ANGLE     170
@@ -29,7 +29,7 @@
 
 #define START_TIME      330   // time for the car to move at start speed in ms
 #define MOVE_TIME       750  // time to move before checking in ms
-#define TURN_TIME       33   // time to perform turn manoeuvre in ms
+#define TURN_TIME       500   // time to perform turn manoeuvre in ms
 
 #define STATE_IDLE      0
 #define STATE_RUNNING   1
